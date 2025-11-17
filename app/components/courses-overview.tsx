@@ -4,8 +4,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { BookOpen, Award, Users, Zap, ArrowRight } from "lucide-react";
-import { useTurnkey } from "@turnkey/react-wallet-kit";
-import { publicKeyToAddress } from "@stacks/transactions";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 const COURSES_LIST = [
   {
@@ -52,36 +51,16 @@ const COURSES_LIST = [
 
 export default function CoursesOverview() {
   const router = useRouter();
-  const { wallets, authState } = useTurnkey();
-  const [stxAddress, setStxAddress] = useState("");
+  const { stxAddress, isAuthenticated } = useAuth();
   const [enrolledCourses, setEnrolledCourses] = useState<Set<number>>(
     new Set()
   );
-  const [loading, setLoading] = useState(false);
-
-  // Get STX wallet address
-  useEffect(() => {
-    if (authState !== "authenticated") return;
-
-    const account = wallets?.[0]?.accounts?.[0];
-    const pubKey = account?.publicKey;
-
-    if (pubKey) {
-      try {
-        const address = publicKeyToAddress(pubKey, "testnet");
-        setStxAddress(address);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  }, [wallets, authState]);
 
   // Check enrollments
   useEffect(() => {
     if (!stxAddress) return;
 
     const checkEnrollments = async () => {
-      setLoading(true);
       try {
         const whitelistRes = await fetch("/api/contract/check-whitelist", {
           method: "POST",
@@ -103,8 +82,6 @@ export default function CoursesOverview() {
         }
       } catch (err) {
         console.error("Status check failed:", err);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -259,7 +236,7 @@ export default function CoursesOverview() {
                   whileHover={{ scale: 1.03, y: -5 }}
                   className="bg-white rounded-3xl border-2 border-orange-200 p-6 shadow-lg hover:shadow-2xl hover:shadow-orange-100 transition-all cursor-pointer"
                   onClick={() =>
-                    authState === "authenticated"
+                    isAuthenticated
                       ? router.push(`/course/${course.id}`)
                       : router.push("/dashboard")
                   }
@@ -293,9 +270,7 @@ export default function CoursesOverview() {
             onClick={() => router.push("/dashboard")}
             className="px-12 py-4 bg-gradient-to-r from-orange-500 to-yellow-400 text-white text-lg font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all"
           >
-            {authState === "authenticated"
-              ? "Go to Dashboard 🚀"
-              : "Start Learning Today 🚀"}
+            {isAuthenticated ? "Go to Dashboard 🚀" : "Start Learning Today 🚀"}
           </motion.button>
         </div>
       </div>

@@ -93,7 +93,7 @@ const handleContractCall = async () => {
   await openContractCall({
     network: new StacksTestnet(),
     contractAddress: "ST39YX57WQXM1CCHA2RD177N4RA5FEQJKM3F22317",
-    contractName: "btcuni",
+    contractName: "btc-university",
     functionName: "enroll-whitelist",
     functionArgs: [],
     onFinish: (data) => {

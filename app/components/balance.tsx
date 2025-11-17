@@ -3,14 +3,12 @@
 import React from "react";
 
 interface BalanceProps {
-  stxwallet: string;
   stxBalance: bigint;
   sbtcBalance: bigint;
   loading: boolean;
 }
 
 export default function Balance({
-  stxwallet,
   stxBalance,
   sbtcBalance,
   loading,

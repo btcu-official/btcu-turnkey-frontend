@@ -2,40 +2,22 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useTurnkey } from "@turnkey/react-wallet-kit";
-import { publicKeyToAddress, principalCV } from "@stacks/transactions";
+import { principalCV } from "@stacks/transactions";
 import { Award, Sparkles } from "lucide-react";
 import {
   signAndBroadcastContractCall,
   CONTRACTS,
 } from "@/app/lib/stacks-client-utils";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 export default function NFTCertificate() {
-  const { wallets, httpClient } = useTurnkey();
-  const [stxAddress, setStxAddress] = useState("");
-  const [stxPubKey, setStxPubKey] = useState("");
+  const { stxAddress, stxPubKey, httpClient } = useAuth();
   const [minting, setMinting] = useState(false);
   const [minted, setMinted] = useState(false);
   const [toast, setToast] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
-
-  // Get STX wallet address and public key
-  useEffect(() => {
-    const account = wallets?.[0]?.accounts?.[0];
-    const pubKey = account?.publicKey;
-
-    if (pubKey) {
-      setStxPubKey(pubKey);
-      try {
-        const address = publicKeyToAddress(pubKey, "testnet");
-        setStxAddress(address);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  }, [wallets]);
 
   const handleMintCertificate = async () => {
     if (!stxPubKey || !stxAddress || !httpClient) {

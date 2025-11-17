@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, MouseEvent } from "react";
-import { useTurnkey } from "@turnkey/react-wallet-kit";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 export default function CreateWallet() {
-  const { createWallet, refreshWallets } = useTurnkey();
+  const { createWallet, refreshWallets } = useAuth();
   const [creating, setCreating] = useState(false);
 
   const handleCreateWallet = async (e: MouseEvent<HTMLButtonElement>) => {

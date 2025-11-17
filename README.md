@@ -31,6 +31,7 @@ The platform demonstrates three core flows: (1) whitelist enrollment requiring 1
 - **Balance Display**: Real-time STX and sBTC balance tracking
 - **Wallet Export**: QR code and key export for wallet portability
 - **Transaction Signing**: Server-side signing via Turnkey with ECDSA signature conversion
+- **Owner Console**: Dedicated admin tools to configure the sBTC contract, manage the whitelist, add courses, and mark completions (auto-enabled when the connected wallet matches the contract owner)
 
 ## Screenshots
 
@@ -119,6 +120,9 @@ app/
 - **API**: Hiro Public API (`https://api.testnet.hiro.so`)
 - **Explorer**: https://explorer.hiro.so/?chain=testnet
 - **Faucet**: https://explorer.hiro.so/sandbox/faucet?chain=testnet
+- **BTC University contract (testnet)**: `ST3FK5E8ZC7KBHTQKRQ4TEXSZFSCQGJMYZ4Z058VY.btc-university`
+- **sBTC token contract (testnet)**: `ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token`
+- Configure via `NEXT_PUBLIC_BTCUNI_CONTRACT_ADDRESS/NEXT_PUBLIC_BTCUNI_CONTRACT_NAME` and `NEXT_PUBLIC_SBTC_CONTRACT_ADDRESS/NEXT_PUBLIC_SBTC_CONTRACT_NAME`. Optionally set `NEXT_PUBLIC_BTCUNI_OWNER_ADDRESS` to gate the admin console to the deployer wallet.
 
 ## Courses Available
 

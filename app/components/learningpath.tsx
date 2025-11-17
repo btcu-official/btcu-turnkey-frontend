@@ -2,8 +2,8 @@
 import * as React from "react";
 import { motion } from "framer-motion";
 import { CheckCircle, Circle } from "lucide-react";
-import { useTurnkey } from "@turnkey/react-wallet-kit";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 interface Step {
   title: string;
@@ -14,7 +14,7 @@ interface Step {
 }
 
 export default function LearningPath() {
-  const { wallets, handleLogin } = useTurnkey();
+  const { wallets, handleLogin } = useAuth();
   const router = useRouter();
 
   const [steps, setSteps] = React.useState<Step[]>([

@@ -1,14 +1,16 @@
 "use client";
 
 import React, { MouseEvent } from "react";
-import { useTurnkey, type Wallet } from "@turnkey/react-wallet-kit";
+import { type Wallet } from "@turnkey/react-wallet-kit";
 import { Download } from "lucide-react";
+import { useTurnkey } from "@turnkey/react-wallet-kit";
 
 interface ExportWalletProps {
   wallets: Wallet[];
 }
 
 export default function ExportWallet({ wallets }: ExportWalletProps) {
+  // Note: handleExportWallet is not available in our AuthContext, so we use useTurnkey directly here
   const { handleExportWallet } = useTurnkey();
 
   const handleExport = (e: MouseEvent<HTMLButtonElement>) => {

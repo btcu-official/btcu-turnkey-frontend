@@ -1,16 +1,21 @@
 "use client";
-import { useTurnkey } from "@turnkey/react-wallet-kit";
 import * as React from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 function HomePage(): React.JSX.Element {
-  const { handleLogin } = useTurnkey();
+  const { handleLogin, isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Navbar */}
       <nav className="flex items-center justify-between px-6 md:px-12 py-5 bg-white">
-        <div className="flex items-center space-x-3">
+        <div
+          className="flex items-center space-x-3 cursor-pointer"
+          onClick={() => router.push("/")}
+        >
           <img
             src="btcu-logo.png"
             alt="Bitcoin University"
@@ -21,15 +26,35 @@ function HomePage(): React.JSX.Element {
           </h1>
         </div>
         <div className="flex items-center gap-6">
-          <button className="text-sm font-medium text-gray-600 hover:text-gray-900">
-            Courses
-          </button>
-          <button
-            onClick={() => handleLogin()}
-            className="px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-full transition-colors"
-          >
-            Join Now
-          </button>
+          {isAuthenticated ? (
+            <>
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-full transition-colors"
+              >
+                Go to Courses
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="text-sm font-medium text-gray-600 hover:text-gray-900">
+                Courses
+              </button>
+              <button
+                onClick={() => handleLogin()}
+                disabled={isLoading}
+                className="px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-50"
+              >
+                {isLoading ? "Loading..." : "Join Now"}
+              </button>
+            </>
+          )}
         </div>
       </nav>
 
@@ -98,25 +123,48 @@ function HomePage(): React.JSX.Element {
           </p>
 
           <div className="flex flex-col items-center gap-6 pt-4">
-            <button
-              onClick={() => handleLogin()}
-              className="group px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold rounded-full transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
-            >
-              Start Learning Now
-              <svg
-                className="w-5 h-5 group-hover:translate-x-1 transition-transform"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+            {isAuthenticated ? (
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="group px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold rounded-full transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
+                Go to Dashboard
+                <svg
+                  className="w-5 h-5 group-hover:translate-x-1 transition-transform"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            ) : (
+              <button
+                onClick={() => handleLogin()}
+                disabled={isLoading}
+                className="group px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold rounded-full transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2 disabled:opacity-50"
+              >
+                {isLoading ? "Loading..." : "Start Learning Now"}
+                <svg
+                  className="w-5 h-5 group-hover:translate-x-1 transition-transform"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            )}
           </div>
 
           {/* Powered By */}

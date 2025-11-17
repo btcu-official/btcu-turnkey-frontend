@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useTurnkey } from "@turnkey/react-wallet-kit";
-import { publicKeyToAddress, uintCV } from "@stacks/transactions";
+import { uintCV } from "@stacks/transactions";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -20,6 +19,8 @@ import {
   signAndBroadcastContractCall,
   CONTRACTS,
 } from "@/app/lib/stacks-client-utils";
+import { getSbtcContractPrincipalCV } from "@/app/lib/contract-helpers";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 const COURSES_DATA = {
   1: {
@@ -239,10 +240,8 @@ export default function CoursePage() {
   const router = useRouter();
   const params = useParams();
   const courseId = parseInt(params.id as string);
-  const { wallets, httpClient } = useTurnkey();
+  const { stxAddress, stxPubKey, httpClient } = useAuth();
 
-  const [stxAddress, setStxAddress] = useState("");
-  const [stxPubKey, setStxPubKey] = useState("");
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isWhitelisted, setIsWhitelisted] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
@@ -255,22 +254,6 @@ export default function CoursePage() {
   } | null>(null);
 
   const course = COURSES_DATA[courseId as keyof typeof COURSES_DATA];
-
-  // Get STX wallet address
-  useEffect(() => {
-    const account = wallets?.[0]?.accounts?.[0];
-    const pubKey = account?.publicKey;
-
-    if (pubKey) {
-      setStxPubKey(pubKey);
-      try {
-        const address = publicKeyToAddress(pubKey, "testnet");
-        setStxAddress(address);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  }, [wallets]);
 
   // Check enrollment status
   useEffect(() => {
@@ -320,12 +303,13 @@ export default function CoursePage() {
 
     setEnrolling(true);
     try {
+      const sbtcPrincipal = getSbtcContractPrincipalCV();
       const txId = await signAndBroadcastContractCall(
         {
           contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btcuni",
+          contractName: "btc-university",
           functionName: "enroll-course",
-          functionArgs: [uintCV(courseId)],
+          functionArgs: [uintCV(courseId), sbtcPrincipal],
           senderAddress: stxAddress,
           senderPubKey: stxPubKey,
         },

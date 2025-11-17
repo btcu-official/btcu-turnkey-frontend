@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@stacks/connect": "^7.10.2",
     "@stacks/network": "^7.2.0",
     "@stacks/transactions": "^7.2.0",
     "@turnkey/react-wallet-kit": "^1.2.0",
@@ -21,7 +22,8 @@
     "pino-pretty": "^13.1.1",
     "qrcode.react": "^4.2.0",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "react-hot-toast": "^2.6.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

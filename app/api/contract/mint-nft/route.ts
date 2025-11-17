@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { publicKeyToAddress, principalCV } from "@stacks/transactions";
+import { principalCV } from "@stacks/transactions";
 import {
   signContractCallWithTurnkey,
   broadcastContractCall,

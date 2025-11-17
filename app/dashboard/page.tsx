@@ -1,22 +1,14 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useTurnkey } from "@turnkey/react-wallet-kit";
 import { useRouter } from "next/navigation";
-import {
-  publicKeyToAddress,
-  fetchCallReadOnlyFunction,
-  cvToValue,
-  Cl,
-} from "@stacks/transactions";
+import { fetchCallReadOnlyFunction, cvToValue, Cl } from "@stacks/transactions";
 import { STACKS_TESTNET } from "@stacks/network";
 import {
   ArrowUpRight,
-  BookOpen,
   GraduationCap,
   Wallet,
   TrendingUp,
-  Award,
   CheckCircle,
   Lock,
 } from "lucide-react";
@@ -25,12 +17,13 @@ import {
   signAndBroadcastContractCall,
   CONTRACTS,
 } from "@/app/lib/stacks-client-utils";
+import { getSbtcContractPrincipalCV } from "@/app/lib/contract-helpers";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 // Import components
 import Header from "../components/header";
 import CreateWallet from "../components/createWallet";
 import WalletDisplay from "../components/displayWallet";
-import Balance from "../components/balance";
 import ExportWallet from "../components/exportwallet";
 import WithdrawSTX from "../components/withdrawwallet";
 
@@ -84,9 +77,8 @@ const COURSES = [
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { authState, wallets, httpClient } = useTurnkey();
-  const [stxAddress, setStxAddress] = useState("");
-  const [stxPubKey, setStxPubKey] = useState("");
+  const { isAuthenticated, stxAddress, stxPubKey, wallets, httpClient } =
+    useAuth();
   const [stxBalance, setStxBalance] = useState<bigint>(0n);
   const [sbtcBalance, setSbtcBalance] = useState<bigint>(0n);
   const [loadingBalance, setLoadingBalance] = useState(false);
@@ -103,24 +95,8 @@ export default function DashboardPage() {
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (authState !== "authenticated") router.push("/");
-  }, [authState, router]);
-
-  // Get STX wallet address and public key
-  useEffect(() => {
-    const account = wallets?.[0]?.accounts?.[0];
-    const pubKey = account?.publicKey;
-
-    if (pubKey) {
-      setStxPubKey(pubKey);
-      try {
-        const address = publicKeyToAddress(pubKey, "testnet");
-        setStxAddress(address);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  }, [wallets]);
+    if (!isAuthenticated) router.push("/");
+  }, [isAuthenticated, router]);
 
   // Fetch STX and sBTC balances
   useEffect(() => {
@@ -207,6 +183,7 @@ export default function DashboardPage() {
 
     setEnrollingWhitelist(true);
     try {
+      const sbtcPrincipal = getSbtcContractPrincipalCV();
       console.log("=== WHITELIST ENROLLMENT ===");
       console.log("Sender Address:", stxAddress);
       console.log("Public Key:", stxPubKey);
@@ -214,9 +191,9 @@ export default function DashboardPage() {
       const txId = await signAndBroadcastContractCall(
         {
           contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btcuni",
+          contractName: "btc-university",
           functionName: "enroll-whitelist",
-          functionArgs: [],
+          functionArgs: [sbtcPrincipal],
           senderAddress: stxAddress,
           senderPubKey: stxPubKey,
         },
@@ -253,7 +230,7 @@ export default function DashboardPage() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  if (authState !== "authenticated") return null;
+  if (!isAuthenticated) return null;
 
   const balanceInStx = Number(stxBalance) / 1_000_000;
   const balanceInSbtc = Number(sbtcBalance) / 100_000_000;
@@ -348,10 +325,13 @@ export default function DashboardPage() {
                 animate={{ opacity: 1, height: "auto" }}
                 className="space-y-4 bg-gray-50 rounded-2xl p-6"
               >
-                <WalletDisplay stxwallet={stxAddress} />
+                <WalletDisplay stxwallet={stxAddress || ""} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <ExportWallet wallets={wallets} />
-                  <WithdrawSTX stxPubKey={stxPubKey} balance={stxBalance} />
+                  <WithdrawSTX
+                    stxPubKey={stxPubKey || ""}
+                    balance={stxBalance}
+                  />
                 </div>
               </motion.div>
             )}

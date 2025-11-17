@@ -1,21 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
-import { publicKeyToAddress, principalCV } from "@stacks/transactions";
+import { NextResponse } from "next/server";
 import {
   signContractCallWithTurnkey,
   broadcastContractCall,
   CONTRACTS,
 } from "@/app/lib/stacks-utils";
+import { getSbtcContractPrincipalCV } from "@/app/lib/contract-helpers";
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     // Server wallet signs for all users (hackathon workaround)
     // Note: This means all enrollments come from the same address
 
     const transaction = await signContractCallWithTurnkey({
       contractAddress: CONTRACTS.BTCUNI_MAIN,
-      contractName: "btcuni",
+      contractName: "btc-university",
       functionName: "enroll-whitelist",
-      functionArgs: [], // No arguments needed
+      functionArgs: [getSbtcContractPrincipalCV()],
     });
 
     const txId = await broadcastContractCall(transaction);

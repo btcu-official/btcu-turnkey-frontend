@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { publicKeyToAddress, uintCV } from "@stacks/transactions";
+import { uintCV } from "@stacks/transactions";
 import {
   signContractCallWithTurnkey,
   broadcastContractCall,
   CONTRACTS,
 } from "@/app/lib/stacks-utils";
+import { getSbtcContractPrincipalCV } from "@/app/lib/contract-helpers";
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,9 +21,9 @@ export async function POST(req: NextRequest) {
     // Server wallet signs for all users (hackathon workaround)
     const transaction = await signContractCallWithTurnkey({
       contractAddress: CONTRACTS.BTCUNI_MAIN,
-      contractName: "btcuni",
+      contractName: "btc-university",
       functionName: "enroll-course",
-      functionArgs: [uintCV(courseId)],
+      functionArgs: [uintCV(courseId), getSbtcContractPrincipalCV()],
     });
 
     const txId = await broadcastContractCall(transaction);

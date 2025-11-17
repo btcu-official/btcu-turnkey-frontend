@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useTurnkey } from "@turnkey/react-wallet-kit";
-import { publicKeyToAddress, uintCV } from "@stacks/transactions";
+import { uintCV } from "@stacks/transactions";
 import { CheckCircle, Circle, Lock, Trophy } from "lucide-react";
 import {
   signAndBroadcastContractCall,
   CONTRACTS,
 } from "@/app/lib/stacks-client-utils";
+import { getSbtcContractPrincipalCV } from "@/app/lib/contract-helpers";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 interface Course {
   id: number;
@@ -68,9 +69,7 @@ interface CourseEnrollmentProps {
 export default function CourseEnrollment({
   onEnrollmentComplete,
 }: CourseEnrollmentProps) {
-  const { wallets, httpClient } = useTurnkey();
-  const [stxAddress, setStxAddress] = useState("");
-  const [stxPubKey, setStxPubKey] = useState("");
+  const { stxAddress, stxPubKey, httpClient } = useAuth();
   const [isWhitelisted, setIsWhitelisted] = useState(false);
   const [checkingWhitelist, setCheckingWhitelist] = useState(false);
   const [enrollingWhitelist, setEnrollingWhitelist] = useState(false);
@@ -78,28 +77,11 @@ export default function CourseEnrollment({
   const [enrolledCourses, setEnrolledCourses] = useState<Set<number>>(
     new Set()
   );
-  const [checkingEnrollments, setCheckingEnrollments] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [toast, setToast] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
-
-  // Get STX wallet address and public key
-  useEffect(() => {
-    const account = wallets?.[0]?.accounts?.[0];
-    const pubKey = account?.publicKey;
-
-    if (pubKey) {
-      setStxPubKey(pubKey);
-      try {
-        const address = publicKeyToAddress(pubKey, "testnet");
-        setStxAddress(address);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  }, [wallets]);
 
   // Check whitelist status
   useEffect(() => {
@@ -135,7 +117,6 @@ export default function CourseEnrollment({
       if (!stxAddress) return;
 
       console.log("🔍 Fetching enrolled course IDs for address:", stxAddress);
-      setCheckingEnrollments(true);
       try {
         const res = await fetch("/api/contract/get-enrolled-ids", {
           method: "POST",
@@ -153,8 +134,6 @@ export default function CourseEnrollment({
         }
       } catch (err) {
         console.error("Enrollment check failed:", err);
-      } finally {
-        setCheckingEnrollments(false);
       }
     };
 
@@ -171,24 +150,13 @@ export default function CourseEnrollment({
 
     setEnrollingWhitelist(true);
     try {
-      console.log("=== WHITELIST ENROLLMENT DEBUG ===");
-      console.log("Sender Address (tx-sender):", stxAddress);
-      console.log("Public Key:", stxPubKey);
-      console.log(
-        "Expected address with sBTC:",
-        "STFWX0GCAVN8WDTV9ZHGB8MKYT1RN0A2JDWM19MR"
-      );
-      console.log(
-        "Addresses match?",
-        stxAddress === "STFWX0GCAVN8WDTV9ZHGB8MKYT1RN0A2JDWM19MR"
-      );
-
+      const sbtcPrincipal = getSbtcContractPrincipalCV();
       const txId = await signAndBroadcastContractCall(
         {
           contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btcuni",
+          contractName: "btc-university",
           functionName: "enroll-whitelist",
-          functionArgs: [],
+          functionArgs: [sbtcPrincipal],
           senderAddress: stxAddress,
           senderPubKey: stxPubKey,
         },
@@ -228,14 +196,13 @@ export default function CourseEnrollment({
 
     setEnrollingCourse(courseId);
     try {
-      console.log("Enrolling course with client-side signing...");
-
+      const sbtcPrincipal = getSbtcContractPrincipalCV();
       const txId = await signAndBroadcastContractCall(
         {
           contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btcuni",
+          contractName: "btc-university",
           functionName: "enroll-course",
-          functionArgs: [uintCV(courseId)],
+          functionArgs: [uintCV(courseId), sbtcPrincipal],
           senderAddress: stxAddress,
           senderPubKey: stxPubKey,
         },

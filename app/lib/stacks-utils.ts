@@ -1,6 +1,5 @@
 import { Turnkey as TurnkeyServerSDK } from "@turnkey/sdk-server";
 import {
-  AnchorMode,
   broadcastTransaction,
   createMessageSignature,
   makeUnsignedContractCall,
@@ -11,19 +10,12 @@ import {
   type SingleSigSpendingCondition,
   type StacksTransactionWire,
 } from "@stacks/transactions";
+export { CONTRACTS, CONTRACT_OWNER_ADDRESS } from "./contracts";
 
 // Stacks network configuration from environment
 export const STACKS_NETWORK =
   (process.env.NEXT_PUBLIC_STACKS_NETWORK as "testnet" | "mainnet") ||
   "testnet";
-
-// Contract addresses from environment variables
-export const CONTRACTS = {
-  BTCUNI_MAIN: `${process.env.NEXT_PUBLIC_BTCUNI_CONTRACT_ADDRESS}.${process.env.NEXT_PUBLIC_BTCUNI_CONTRACT_NAME}`,
-  BTCUNI_NFT: `${process.env.NEXT_PUBLIC_BTCUNI_NFT_CONTRACT_ADDRESS}.${process.env.NEXT_PUBLIC_BTCUNI_NFT_CONTRACT_NAME}`,
-  SBTC_TOKEN: `${process.env.NEXT_PUBLIC_SBTC_CONTRACT_ADDRESS}.${process.env.NEXT_PUBLIC_SBTC_CONTRACT_NAME}`,
-  DIA_ORACLE: `${process.env.NEXT_PUBLIC_DIA_ORACLE_CONTRACT_ADDRESS}.${process.env.NEXT_PUBLIC_DIA_ORACLE_CONTRACT_NAME}`,
-};
 
 interface ContractCallParams {
   contractAddress: string;

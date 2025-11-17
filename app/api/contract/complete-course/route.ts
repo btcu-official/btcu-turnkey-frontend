@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { publicKeyToAddress, uintCV, principalCV } from "@stacks/transactions";
+import { uintCV, principalCV } from "@stacks/transactions";
 import {
   signContractCallWithTurnkey,
   broadcastContractCall,
@@ -17,13 +17,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Derive Stacks address from public key (must be instructor or owner)
-    const senderAddress = publicKeyToAddress(pubKey, "testnet");
-
     // Call complete-course function
     const transaction = await signContractCallWithTurnkey({
       contractAddress: CONTRACTS.BTCUNI_MAIN,
-      contractName: "btcuni",
+      contractName: "btc-university",
       functionName: "complete-course",
       functionArgs: [uintCV(courseId), principalCV(studentAddress)],
     });
