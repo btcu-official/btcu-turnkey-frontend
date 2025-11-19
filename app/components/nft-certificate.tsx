@@ -8,6 +8,7 @@ import {
   signAndBroadcastContractCall,
   CONTRACTS,
 } from "@/app/lib/stacks-client-utils";
+import { parseContractId } from "@/app/lib/contracts";
 import { useAuth } from "@/app/contexts/AuthContext";
 
 export default function NFTCertificate() {
@@ -28,11 +29,15 @@ export default function NFTCertificate() {
     setMinting(true);
     try {
       console.log("Minting NFT with client-side signing...");
+      
+      const { address: contractAddress, name: contractName } = parseContractId(
+        CONTRACTS.BTCUNI_NFT
+      );
 
       const txId = await signAndBroadcastContractCall(
         {
-          contractAddress: CONTRACTS.BTCUNI_NFT,
-          contractName: "btcuniNft",
+          contractAddress,
+          contractName,
           functionName: "mint",
           functionArgs: [principalCV(stxAddress)],
           senderAddress: stxAddress,

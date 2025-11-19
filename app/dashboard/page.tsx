@@ -18,6 +18,7 @@ import {
   CONTRACTS,
 } from "@/app/lib/stacks-client-utils";
 import { getSbtcContractPrincipalCV } from "@/app/lib/contract-helpers";
+import { parseContractId } from "@/app/lib/contracts";
 import { useAuth } from "@/app/contexts/AuthContext";
 
 // Import components
@@ -185,14 +186,20 @@ export default function DashboardPage() {
     setEnrollingWhitelist(true);
     try {
       const sbtcPrincipal = getSbtcContractPrincipalCV();
+      const { address: contractAddress, name: contractName } = parseContractId(
+        CONTRACTS.BTCUNI_MAIN
+      );
+      
       console.log("=== WHITELIST ENROLLMENT ===");
       console.log("Sender Address:", stxAddress);
       console.log("Public Key:", stxPubKey);
+      console.log("Contract Address:", contractAddress);
+      console.log("Contract Name:", contractName);
 
       const txId = await signAndBroadcastContractCall(
         {
-          contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btc-university",
+          contractAddress,
+          contractName,
           functionName: "enroll-whitelist",
           functionArgs: [sbtcPrincipal],
           senderAddress: stxAddress,

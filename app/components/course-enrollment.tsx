@@ -9,6 +9,7 @@ import {
   CONTRACTS,
 } from "@/app/lib/stacks-client-utils";
 import { getSbtcContractPrincipalCV } from "@/app/lib/contract-helpers";
+import { parseContractId } from "@/app/lib/contracts";
 import { useAuth } from "@/app/contexts/AuthContext";
 
 interface Course {
@@ -151,10 +152,14 @@ export default function CourseEnrollment({
     setEnrollingWhitelist(true);
     try {
       const sbtcPrincipal = getSbtcContractPrincipalCV();
+      const { address: contractAddress, name: contractName } = parseContractId(
+        CONTRACTS.BTCUNI_MAIN
+      );
+      
       const txId = await signAndBroadcastContractCall(
         {
-          contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btc-university",
+          contractAddress,
+          contractName,
           functionName: "enroll-whitelist",
           functionArgs: [sbtcPrincipal],
           senderAddress: stxAddress,
@@ -197,10 +202,14 @@ export default function CourseEnrollment({
     setEnrollingCourse(courseId);
     try {
       const sbtcPrincipal = getSbtcContractPrincipalCV();
+      const { address: contractAddress, name: contractName } = parseContractId(
+        CONTRACTS.BTCUNI_MAIN
+      );
+      
       const txId = await signAndBroadcastContractCall(
         {
-          contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btc-university",
+          contractAddress,
+          contractName,
           functionName: "enroll-course",
           functionArgs: [uintCV(courseId), sbtcPrincipal],
           senderAddress: stxAddress,

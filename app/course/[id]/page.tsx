@@ -347,10 +347,14 @@ export default function CoursePage() {
     setEnrolling(true);
     try {
       const sbtcPrincipal = getSbtcContractPrincipalCV();
+      const { address: contractAddress, name: contractName } = parseContractId(
+        CONTRACTS.BTCUNI_MAIN
+      );
+      
       const txId = await signAndBroadcastContractCall(
         {
-          contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btc-university",
+          contractAddress,
+          contractName,
           functionName: "enroll-course",
           functionArgs: [uintCV(courseId), sbtcPrincipal],
           senderAddress: stxAddress,
