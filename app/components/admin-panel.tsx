@@ -39,6 +39,7 @@ interface ToastState {
 }
 
 const DEFAULT_COURSE = {
+  courseId: "0",
   name: "",
   details: "",
   instructor: CONTRACT_OWNER_ADDRESS,
@@ -71,10 +72,15 @@ export default function AdminPanel({
   const [sbtcInput, setSbtcInput] = useState(CONTRACTS.SBTC_TOKEN);
   const [whitelistAddress, setWhitelistAddress] = useState("");
   const [removeAddress, setRemoveAddress] = useState("");
+  const [instructorAddress, setInstructorAddress] = useState("");
   const [courseForm, setCourseForm] = useState(() => ({ ...DEFAULT_COURSE }));
   const [completionForm, setCompletionForm] = useState({
     courseId: "",
     student: "",
+  });
+  const [meetingLinkForm, setMeetingLinkForm] = useState({
+    courseId: "",
+    link: "",
   });
 
   const ownerAddress = CONTRACT_OWNER_ADDRESS;
@@ -204,6 +210,33 @@ export default function AdminPanel({
     }
   };
 
+  const handleAddInstructor = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      ensureOwnerReady();
+      if (!instructorAddress.trim()) {
+        throw new Error("Instructor address is required");
+      }
+      const txId = await signAndBroadcastContractCall(
+        {
+          contractAddress: CONTRACTS.BTCUNI_MAIN,
+          contractName: "btc-university",
+          functionName: "add-instructor",
+          functionArgs: [principalCV(instructorAddress.trim())],
+          senderAddress: stxAddress,
+          senderPubKey: stxPubKey,
+        },
+        httpClient!
+      );
+      showSuccess(`Instructor added (tx ${txId.slice(0, 10)}…)`);
+      setInstructorAddress("");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Unable to add instructor";
+      showError(message);
+    }
+  };
+
   const handleAddCourse = async (event: React.FormEvent) => {
     event.preventDefault();
     try {
@@ -211,6 +244,7 @@ export default function AdminPanel({
       if (!courseForm.name.trim() || !courseForm.details.trim()) {
         throw new Error("Course name and description are required");
       }
+      const courseId = BigInt(courseForm.courseId || "0");
       const priceUint = toUintFromSbtc(courseForm.price);
       const maxStudents = BigInt(courseForm.maxStudents || "0");
       const txId = await signAndBroadcastContractCall(
@@ -219,6 +253,7 @@ export default function AdminPanel({
           contractName: "btc-university",
           functionName: "add-course",
           functionArgs: [
+            Cl.uint(courseId),
             Cl.stringAscii(courseForm.name.trim()),
             Cl.stringAscii(courseForm.details.trim()),
             principalCV(courseForm.instructor.trim()),
@@ -230,11 +265,43 @@ export default function AdminPanel({
         },
         httpClient!
       );
-      showSuccess(`Course added (tx ${txId.slice(0, 10)}…)`);
+      showSuccess(
+        `Course ${courseId === 0n ? "added" : "modified"} (tx ${txId.slice(0, 10)}…)`
+      );
       setCourseForm({ ...DEFAULT_COURSE });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unable to add course";
+      showError(message);
+    }
+  };
+
+  const handleSetMeetingLink = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      ensureOwnerReady();
+      if (!meetingLinkForm.courseId || !meetingLinkForm.link.trim()) {
+        throw new Error("Course ID and meeting link are required");
+      }
+      const txId = await signAndBroadcastContractCall(
+        {
+          contractAddress: CONTRACTS.BTCUNI_MAIN,
+          contractName: "btc-university",
+          functionName: "set-meeting-link",
+          functionArgs: [
+            uintCV(Number(meetingLinkForm.courseId)),
+            Cl.stringAscii(meetingLinkForm.link.trim()),
+          ],
+          senderAddress: stxAddress,
+          senderPubKey: stxPubKey,
+        },
+        httpClient!
+      );
+      showSuccess(`Meeting link set (tx ${txId.slice(0, 10)}…)`);
+      setMeetingLinkForm({ courseId: "", link: "" });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Unable to set meeting link";
       showError(message);
     }
   };
@@ -355,6 +422,32 @@ export default function AdminPanel({
 
         <div className="border border-gray-200 rounded-xl p-4 space-y-4">
           <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4" />
+            Instructor Management
+          </p>
+          <form onSubmit={handleAddInstructor} className="space-y-3">
+            <input
+              type="text"
+              value={instructorAddress}
+              onChange={(e) => setInstructorAddress(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
+              placeholder="Instructor STX address"
+            />
+            <button
+              type="submit"
+              disabled={!isOwner || !connected}
+              className="w-full rounded-lg bg-indigo-600 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              Add Instructor
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="border border-gray-200 rounded-xl p-4 space-y-4">
+          <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <UserPlus className="w-4 h-4" />
             Whitelist Controls
           </p>
@@ -418,8 +511,25 @@ export default function AdminPanel({
         >
           <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <BookPlus className="w-4 h-4" />
-            Add Course
+            Add/Modify Course
           </p>
+          <div>
+            <label className="text-xs text-gray-500">
+              Course ID (0 for new, existing ID to modify)
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={courseForm.courseId}
+              onChange={(e) =>
+                setCourseForm((prev) => ({
+                  ...prev,
+                  courseId: e.target.value,
+                }))
+              }
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
           <input
             type="text"
             value={courseForm.name}
@@ -486,7 +596,7 @@ export default function AdminPanel({
             className="w-full rounded-lg bg-orange-500 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <BookPlus className="w-4 h-4" />
-            Deploy Course
+            {courseForm.courseId === "0" ? "Deploy Course" : "Modify Course"}
           </button>
         </form>
 
@@ -529,6 +639,56 @@ export default function AdminPanel({
             className="w-full rounded-lg bg-blue-600 text-white py-2 font-semibold disabled:opacity-50"
           >
             Update Student Progress
+          </button>
+        </form>
+      </div>
+
+      <div className="border border-gray-200 rounded-xl p-4">
+        <form onSubmit={handleSetMeetingLink} className="space-y-3">
+          <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <BookPlus className="w-4 h-4" />
+            Set Meeting Link
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500">Course ID</label>
+              <input
+                type="number"
+                min={1}
+                value={meetingLinkForm.courseId}
+                onChange={(e) =>
+                  setMeetingLinkForm((prev) => ({
+                    ...prev,
+                    courseId: e.target.value,
+                  }))
+                }
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                placeholder="Course ID"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">Meeting Link</label>
+              <input
+                type="text"
+                value={meetingLinkForm.link}
+                onChange={(e) =>
+                  setMeetingLinkForm((prev) => ({
+                    ...prev,
+                    link: e.target.value,
+                  }))
+                }
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                placeholder="https://zoom.us/j/..."
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            disabled={!isOwner || !connected}
+            className="w-full rounded-lg bg-purple-600 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <BookPlus className="w-4 h-4" />
+            Set Meeting Link
           </button>
         </form>
       </div>

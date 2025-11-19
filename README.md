@@ -120,7 +120,7 @@ app/
 - **API**: Hiro Public API (`https://api.testnet.hiro.so`)
 - **Explorer**: https://explorer.hiro.so/?chain=testnet
 - **Faucet**: https://explorer.hiro.so/sandbox/faucet?chain=testnet
-- **BTC University contract (testnet)**: `ST3FK5E8ZC7KBHTQKRQ4TEXSZFSCQGJMYZ4Z058VY.btc-university`
+- **BTC University contract (testnet)**: `STHJGT945DGCQH08X9KB04V2DBHERWTQZCN5BVJS.btc-university`
 - **sBTC token contract (testnet)**: `ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token`
 - Configure via `NEXT_PUBLIC_BTCUNI_CONTRACT_ADDRESS/NEXT_PUBLIC_BTCUNI_CONTRACT_NAME` and `NEXT_PUBLIC_SBTC_CONTRACT_ADDRESS/NEXT_PUBLIC_SBTC_CONTRACT_NAME`. Optionally set `NEXT_PUBLIC_BTCUNI_OWNER_ADDRESS` to gate the admin console to the deployer wallet.
 

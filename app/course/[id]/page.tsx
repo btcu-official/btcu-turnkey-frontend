@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { uintCV } from "@stacks/transactions";
+import { uintCV, fetchCallReadOnlyFunction, cvToValue } from "@stacks/transactions";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -14,12 +14,15 @@ import {
   Play,
   FileText,
   Users,
+  Video,
 } from "lucide-react";
 import {
   signAndBroadcastContractCall,
   CONTRACTS,
+  STACKS_NETWORK,
 } from "@/app/lib/stacks-client-utils";
 import { getSbtcContractPrincipalCV } from "@/app/lib/contract-helpers";
+import { parseContractId } from "@/app/lib/contracts";
 import { useAuth } from "@/app/contexts/AuthContext";
 
 const COURSES_DATA = {
@@ -248,6 +251,7 @@ export default function CoursePage() {
   const [completedLessons, setCompletedLessons] = useState<Set<number>>(
     new Set()
   );
+  const [meetingLink, setMeetingLink] = useState<string | null>(null);
   const [toast, setToast] = useState<{
     type: "success" | "error";
     message: string;
@@ -289,6 +293,33 @@ export default function CoursePage() {
 
     checkStatus();
   }, [stxAddress, courseId]);
+
+  // Fetch meeting link for enrolled students
+  useEffect(() => {
+    if (!isEnrolled || !courseId) return;
+
+    const fetchMeetingLink = async () => {
+      try {
+        const { address, name } = parseContractId(CONTRACTS.BTCUNI_MAIN);
+        const result = await fetchCallReadOnlyFunction({
+          contractAddress: address,
+          contractName: name,
+          functionName: "get-meeting-link",
+          functionArgs: [uintCV(courseId)],
+          network: STACKS_NETWORK,
+          senderAddress: address,
+        });
+        const linkData = cvToValue(result);
+        if (linkData?.value?.value?.link) {
+          setMeetingLink(linkData.value.value.link);
+        }
+      } catch (err) {
+        console.error("Failed to fetch meeting link:", err);
+      }
+    };
+
+    fetchMeetingLink();
+  }, [isEnrolled, courseId]);
 
   const handleEnrollCourse = async () => {
     if (!stxPubKey || !stxAddress || !httpClient) {
@@ -564,6 +595,17 @@ export default function CoursePage() {
                     <Play className="w-5 h-5" />
                     Continue Learning
                   </button>
+                  {meetingLink && (
+                    <a
+                      href={meetingLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Video className="w-5 h-5" />
+                      Join Live Session
+                    </a>
+                  )}
                   <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
                     <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
                     <p className="text-sm font-semibold text-green-900">
