@@ -41,7 +41,7 @@ export default function Header() {
           className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <ShieldCheck className="w-4 h-4" />
-          <span className="hidden sm:inline">Admin</span>
+          <span className="">Instructor Settings</span>
         </button>
         <button
           onClick={(e: MouseEvent<HTMLButtonElement>) => {

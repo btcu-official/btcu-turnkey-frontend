@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   fetchCallReadOnlyFunction,
   cvToValue,
@@ -25,17 +25,18 @@ import {
   UserMinus,
   BookPlus,
   CheckCircle2,
+  Award,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface AdminPanelProps {
   stxAddress: string;
   stxPubKey: string;
   httpClient: TurnkeySDKClientBase | null | undefined;
-}
-
-interface ToastState {
-  type: "success" | "error";
-  message: string;
+  isInstructor?: boolean;
 }
 
 const DEFAULT_COURSE = {
@@ -65,10 +66,10 @@ export default function AdminPanel({
   stxAddress,
   stxPubKey,
   httpClient,
+  isInstructor: isInstructorProp,
 }: AdminPanelProps) {
   const [configuredSbtc, setConfiguredSbtc] = useState<string | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(false);
-  const [status, setStatus] = useState<ToastState | null>(null);
   const [sbtcInput, setSbtcInput] = useState(CONTRACTS.SBTC_TOKEN);
   const [whitelistAddress, setWhitelistAddress] = useState("");
   const [removeAddress, setRemoveAddress] = useState("");
@@ -82,32 +83,58 @@ export default function AdminPanel({
     courseId: "",
     link: "",
   });
+  const [nftMintAddress, setNftMintAddress] = useState("");
+  const [isInstructor, setIsInstructor] = useState(isInstructorProp ?? false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  
+  const [loadingSbtc, setLoadingSbtc] = useState(false);
+  const [loadingWhitelist, setLoadingWhitelist] = useState(false);
+  const [loadingRemove, setLoadingRemove] = useState(false);
+  const [loadingInstructor, setLoadingInstructor] = useState(false);
+  const [loadingCourse, setLoadingCourse] = useState(false);
+  const [loadingCompletion, setLoadingCompletion] = useState(false);
+  const [loadingMeetingLink, setLoadingMeetingLink] = useState(false);
+  const [loadingNft, setLoadingNft] = useState(false);
 
-  const ownerAddress = CONTRACT_OWNER_ADDRESS;
-  const isOwner = useMemo(() => {
-    if (!ownerAddress || !stxAddress) return false;
-    return ownerAddress.toUpperCase() === stxAddress.toUpperCase();
-  }, [ownerAddress, stxAddress]);
+  // Check instructor status on mount and when address changes
+  useEffect(() => {
+    async function checkInstructorStatus() {
+      if (!stxAddress) {
+        setIsInstructor(false);
+        return;
+      }
+
+      // Use prop if provided, otherwise fetch from contract
+      if (isInstructorProp !== undefined) {
+        setIsInstructor(isInstructorProp);
+        return;
+      }
+
+      try {
+        const { checkIsInstructor } = await import(
+          "@/app/lib/stacks-client-utils"
+        );
+        const result = await checkIsInstructor(
+          stxAddress,
+          CONTRACTS.BTCUNI_MAIN
+        );
+        setIsInstructor(result);
+      } catch (err) {
+        console.error("Failed to check instructor status:", err);
+        setIsInstructor(false);
+      }
+    }
+
+    checkInstructorStatus();
+  }, [stxAddress, isInstructorProp]);
 
   const connected = Boolean(stxAddress && stxPubKey && httpClient);
-
-  const showError = (message: string) =>
-    setStatus({
-      type: "error",
-      message,
-    });
-
-  const showSuccess = (message: string) =>
-    setStatus({
-      type: "success",
-      message,
-    });
 
   const refreshConfiguredSbtc = useCallback(async () => {
     try {
       setLoadingConfig(true);
       const { address, name } = parseContractId(CONTRACTS.BTCUNI_MAIN);
-      const sender = stxAddress || ownerAddress;
+      const sender = stxAddress || CONTRACT_OWNER_ADDRESS;
       if (!sender) {
         setConfiguredSbtc(null);
         return;
@@ -128,21 +155,15 @@ export default function AdminPanel({
     } finally {
       setLoadingConfig(false);
     }
-  }, [ownerAddress, stxAddress]);
+  }, [stxAddress]);
 
   useEffect(() => {
     refreshConfiguredSbtc();
   }, [refreshConfiguredSbtc]);
 
-  useEffect(() => {
-    if (!status) return;
-    const timeout = setTimeout(() => setStatus(null), 6000);
-    return () => clearTimeout(timeout);
-  }, [status]);
-
-  const ensureOwnerReady = () => {
-    if (!isOwner) {
-      throw new Error("Only the contract owner can perform this action");
+  const ensureInstructorReady = () => {
+    if (!isInstructor) {
+      throw new Error("Only authorized instructors can perform this action");
     }
     if (!connected) {
       throw new Error("Connect your Turnkey wallet to continue");
@@ -151,13 +172,15 @@ export default function AdminPanel({
 
   const handleSetSbtc = async (event: React.FormEvent) => {
     event.preventDefault();
+    setLoadingSbtc(true);
     try {
-      ensureOwnerReady();
+      ensureInstructorReady();
       const principal = getContractPrincipalCV(sbtcInput);
+      const mainContract = parseContractId(CONTRACTS.BTCUNI_MAIN);
       const txId = await signAndBroadcastContractCall(
         {
-          contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btc-university",
+          contractAddress: mainContract.address,
+          contractName: mainContract.name,
           functionName: "set-sbtc-contract",
           functionArgs: [principal],
           senderAddress: stxAddress,
@@ -165,11 +188,13 @@ export default function AdminPanel({
         },
         httpClient!
       );
-      showSuccess(`sBTC contract updated (tx ${txId.slice(0, 10)}…)`);
+      toast.success(`Transaction sent: ${txId.slice(0, 10)}…`);
       await refreshConfiguredSbtc();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Update failed";
-      showError(message);
+      toast.error(message);
+    } finally {
+      setLoadingSbtc(false);
     }
   };
 
@@ -178,18 +203,24 @@ export default function AdminPanel({
     address: string,
     reset: () => void
   ) => {
+    if (type === "add") {
+      setLoadingWhitelist(true);
+    } else {
+      setLoadingRemove(true);
+    }
     try {
-      ensureOwnerReady();
+      ensureInstructorReady();
       const trimmed = address.trim();
       if (!trimmed) {
         throw new Error("Address is required");
       }
       const functionName =
         type === "add" ? "add-whitelist" : "remove-whitelist";
+      const mainContract = parseContractId(CONTRACTS.BTCUNI_MAIN);
       const txId = await signAndBroadcastContractCall(
         {
-          contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btc-university",
+          contractAddress: mainContract.address,
+          contractName: mainContract.name,
           functionName,
           functionArgs: [principalCV(trimmed)],
           senderAddress: stxAddress,
@@ -197,30 +228,34 @@ export default function AdminPanel({
         },
         httpClient!
       );
-      showSuccess(
-        `${
-          type === "add" ? "Added" : "Removed"
-        } whitelist entry (tx ${txId.slice(0, 10)}…)`
-      );
+      toast.success(`Transaction sent: ${txId.slice(0, 10)}…`);
       reset();
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Whitelist update failed";
-      showError(message);
+      toast.error(message);
+    } finally {
+      if (type === "add") {
+        setLoadingWhitelist(false);
+      } else {
+        setLoadingRemove(false);
+      }
     }
   };
 
   const handleAddInstructor = async (event: React.FormEvent) => {
     event.preventDefault();
+    setLoadingInstructor(true);
     try {
-      ensureOwnerReady();
+      ensureInstructorReady();
       if (!instructorAddress.trim()) {
         throw new Error("Instructor address is required");
       }
+      const mainContract = parseContractId(CONTRACTS.BTCUNI_MAIN);
       const txId = await signAndBroadcastContractCall(
         {
-          contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btc-university",
+          contractAddress: mainContract.address,
+          contractName: mainContract.name,
           functionName: "add-instructor",
           functionArgs: [principalCV(instructorAddress.trim())],
           senderAddress: stxAddress,
@@ -228,29 +263,33 @@ export default function AdminPanel({
         },
         httpClient!
       );
-      showSuccess(`Instructor added (tx ${txId.slice(0, 10)}…)`);
+      toast.success(`Transaction sent: ${txId.slice(0, 10)}…`);
       setInstructorAddress("");
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unable to add instructor";
-      showError(message);
+      toast.error(message);
+    } finally {
+      setLoadingInstructor(false);
     }
   };
 
   const handleAddCourse = async (event: React.FormEvent) => {
     event.preventDefault();
+    setLoadingCourse(true);
     try {
-      ensureOwnerReady();
+      ensureInstructorReady();
       if (!courseForm.name.trim() || !courseForm.details.trim()) {
         throw new Error("Course name and description are required");
       }
       const courseId = BigInt(courseForm.courseId || "0");
       const priceUint = toUintFromSbtc(courseForm.price);
       const maxStudents = BigInt(courseForm.maxStudents || "0");
+      const mainContract = parseContractId(CONTRACTS.BTCUNI_MAIN);
       const txId = await signAndBroadcastContractCall(
         {
-          contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btc-university",
+          contractAddress: mainContract.address,
+          contractName: mainContract.name,
           functionName: "add-course",
           functionArgs: [
             Cl.uint(courseId),
@@ -265,28 +304,30 @@ export default function AdminPanel({
         },
         httpClient!
       );
-      showSuccess(
-        `Course ${courseId === 0n ? "added" : "modified"} (tx ${txId.slice(0, 10)}…)`
-      );
+      toast.success(`Transaction sent: ${txId.slice(0, 10)}…`);
       setCourseForm({ ...DEFAULT_COURSE });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unable to add course";
-      showError(message);
+      toast.error(message);
+    } finally {
+      setLoadingCourse(false);
     }
   };
 
   const handleSetMeetingLink = async (event: React.FormEvent) => {
     event.preventDefault();
+    setLoadingMeetingLink(true);
     try {
-      ensureOwnerReady();
+      ensureInstructorReady();
       if (!meetingLinkForm.courseId || !meetingLinkForm.link.trim()) {
         throw new Error("Course ID and meeting link are required");
       }
+      const mainContract = parseContractId(CONTRACTS.BTCUNI_MAIN);
       const txId = await signAndBroadcastContractCall(
         {
-          contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btc-university",
+          contractAddress: mainContract.address,
+          contractName: mainContract.name,
           functionName: "set-meeting-link",
           functionArgs: [
             uintCV(Number(meetingLinkForm.courseId)),
@@ -297,26 +338,30 @@ export default function AdminPanel({
         },
         httpClient!
       );
-      showSuccess(`Meeting link set (tx ${txId.slice(0, 10)}…)`);
+      toast.success(`Transaction sent: ${txId.slice(0, 10)}…`);
       setMeetingLinkForm({ courseId: "", link: "" });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unable to set meeting link";
-      showError(message);
+      toast.error(message);
+    } finally {
+      setLoadingMeetingLink(false);
     }
   };
 
   const handleCompleteCourse = async (event: React.FormEvent) => {
     event.preventDefault();
+    setLoadingCompletion(true);
     try {
-      ensureOwnerReady();
+      ensureInstructorReady();
       if (!completionForm.courseId || !completionForm.student.trim()) {
         throw new Error("Course ID and student address are required");
       }
+      const mainContract = parseContractId(CONTRACTS.BTCUNI_MAIN);
       const txId = await signAndBroadcastContractCall(
         {
-          contractAddress: CONTRACTS.BTCUNI_MAIN,
-          contractName: "btc-university",
+          contractAddress: mainContract.address,
+          contractName: mainContract.name,
           functionName: "complete-course",
           functionArgs: [
             uintCV(Number(completionForm.courseId)),
@@ -327,182 +372,76 @@ export default function AdminPanel({
         },
         httpClient!
       );
-      showSuccess(`Course completion submitted (tx ${txId.slice(0, 10)}…)`);
+      toast.success(`Transaction sent: ${txId.slice(0, 10)}…`);
       setCompletionForm({ courseId: "", student: "" });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unable to complete course";
-      showError(message);
+      toast.error(message);
+    } finally {
+      setLoadingCompletion(false);
     }
   };
 
-  const ownerBadge = isOwner ? (
-    <span className="inline-flex items-center gap-2 text-sm font-semibold px-3 py-1 rounded-full bg-green-100 text-green-800">
+  const handleMintNft = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoadingNft(true);
+    try {
+      ensureInstructorReady();
+      if (!nftMintAddress.trim()) {
+        throw new Error("Student address is required");
+      }
+
+      const nftContract = parseContractId(CONTRACTS.BTCUNI_NFT);
+      const txId = await signAndBroadcastContractCall(
+        {
+          contractAddress: nftContract.address,
+          contractName: nftContract.name,
+          functionName: "mint-for-student",
+          functionArgs: [principalCV(nftMintAddress.trim())],
+          senderAddress: stxAddress,
+          senderPubKey: stxPubKey,
+        },
+        httpClient!
+      );
+      toast.success(`Transaction sent: ${txId.slice(0, 10)}…`);
+      setNftMintAddress("");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Unable to mint NFT";
+      toast.error(message);
+    } finally {
+      setLoadingNft(false);
+    }
+  };
+
+  const instructorBadge = isInstructor ? (
+    <span className="w-fit inline-flex  items-center gap-2 text-sm font-semibold px-3 py-1 rounded-full bg-green-100 text-green-800">
       <ShieldCheck className="w-4 h-4" />
-      Owner wallet connected
+      Instructor wallet connected
     </span>
   ) : (
     <span className="inline-flex items-center gap-2 text-sm font-semibold px-3 py-1 rounded-full bg-red-100 text-red-800">
       <Lock className="w-4 h-4" />
-      Owner verification required
+      Instructor verification required
     </span>
   );
 
   return (
     <section className="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row ">
         <div>
-          <h3 className="text-2xl font-bold text-gray-900">Admin Console</h3>
+          <h3 className="text-2xl font-bold text-gray-900">Instructor Console</h3>
           <p className="text-sm text-gray-600">
             Manage whitelist, courses, and sBTC configuration directly on-chain.
           </p>
         </div>
-        {ownerBadge}
+        {instructorBadge}
       </div>
 
-      {status && (
-        <div
-          className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
-            status.type === "success"
-              ? "border-green-200 bg-green-50 text-green-800"
-              : "border-red-200 bg-red-50 text-red-800"
-          }`}
-        >
-          <CheckCircle2
-            className={`w-5 h-5 ${
-              status.type === "success" ? "text-green-600" : "text-red-600"
-            }`}
-          />
-          <p>{status.message}</p>
-        </div>
-      )}
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="border border-gray-200 rounded-xl p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-gray-500">
-                Configured sBTC Contract
-              </p>
-              <p className="font-mono text-sm text-gray-900 break-all">
-                {configuredSbtc || "Not set"}
-              </p>
-            </div>
-            <button
-              onClick={refreshConfiguredSbtc}
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-              disabled={loadingConfig}
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${loadingConfig ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </button>
-          </div>
-          <form onSubmit={handleSetSbtc} className="space-y-3">
-            <label className="text-sm font-semibold text-gray-700">
-              Set sBTC Contract
-            </label>
-            <input
-              type="text"
-              value={sbtcInput}
-              onChange={(e) => setSbtcInput(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
-              placeholder="ST...contract"
-            />
-            <button
-              type="submit"
-              disabled={!isOwner || !connected}
-              className="w-full rounded-lg bg-gray-900 text-white py-2 font-semibold disabled:opacity-50"
-            >
-              Update sBTC Contract
-            </button>
-          </form>
-        </div>
-
-        <div className="border border-gray-200 rounded-xl p-4 space-y-4">
-          <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4" />
-            Instructor Management
-          </p>
-          <form onSubmit={handleAddInstructor} className="space-y-3">
-            <input
-              type="text"
-              value={instructorAddress}
-              onChange={(e) => setInstructorAddress(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
-              placeholder="Instructor STX address"
-            />
-            <button
-              type="submit"
-              disabled={!isOwner || !connected}
-              className="w-full rounded-lg bg-indigo-600 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <UserPlus className="w-4 h-4" />
-              Add Instructor
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="border border-gray-200 rounded-xl p-4 space-y-4">
-          <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-            <UserPlus className="w-4 h-4" />
-            Whitelist Controls
-          </p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleWhitelist("add", whitelistAddress, () =>
-                setWhitelistAddress("")
-              );
-            }}
-            className="space-y-3"
-          >
-            <input
-              type="text"
-              value={whitelistAddress}
-              onChange={(e) => setWhitelistAddress(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
-              placeholder="Student STX address"
-            />
-            <button
-              type="submit"
-              disabled={!isOwner || !connected}
-              className="w-full rounded-lg bg-green-600 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <UserPlus className="w-4 h-4" />
-              Add to Whitelist
-            </button>
-          </form>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleWhitelist("remove", removeAddress, () =>
-                setRemoveAddress("")
-              );
-            }}
-            className="space-y-3"
-          >
-            <input
-              type="text"
-              value={removeAddress}
-              onChange={(e) => setRemoveAddress(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
-              placeholder="Student STX address"
-            />
-            <button
-              type="submit"
-              disabled={!isOwner || !connected}
-              className="w-full rounded-lg bg-red-600 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <UserMinus className="w-4 h-4" />
-              Remove from Whitelist
-            </button>
-          </form>
-        </div>
-      </div>
+      {/* Main Instructor Actions - 2x2 Grid */}
+      <div>
+        <h4 className="text-lg font-semibold text-gray-900 mb-4">Course Management</h4>
 
       <div className="grid gap-6 md:grid-cols-2">
         <form
@@ -513,6 +452,7 @@ export default function AdminPanel({
             <BookPlus className="w-4 h-4" />
             Add/Modify Course
           </p>
+          <p>Note: no special symbols, no em-dash, or will fail</p>
           <div>
             <label className="text-xs text-gray-500">
               Course ID (0 for new, existing ID to modify)
@@ -592,11 +532,20 @@ export default function AdminPanel({
           </div>
           <button
             type="submit"
-            disabled={!isOwner || !connected}
+            disabled={!isInstructor || !connected || loadingCourse}
             className="w-full rounded-lg bg-orange-500 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            <BookPlus className="w-4 h-4" />
-            {courseForm.courseId === "0" ? "Deploy Course" : "Modify Course"}
+            {loadingCourse ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <BookPlus className="w-4 h-4" />
+                Deploy/Modify Course
+              </>
+            )}
           </button>
         </form>
 
@@ -635,21 +584,70 @@ export default function AdminPanel({
           />
           <button
             type="submit"
-            disabled={!isOwner || !connected}
-            className="w-full rounded-lg bg-blue-600 text-white py-2 font-semibold disabled:opacity-50"
+            disabled={!isInstructor || !connected || loadingCompletion}
+            className="w-full rounded-lg bg-blue-600 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            Update Student Progress
+            {loadingCompletion ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                Update Student Progress
+              </>
+            )}
           </button>
         </form>
-      </div>
 
-      <div className="border border-gray-200 rounded-xl p-4">
-        <form onSubmit={handleSetMeetingLink} className="space-y-3">
+        <form
+          onSubmit={handleMintNft}
+          className="border border-gray-200 rounded-xl p-4 space-y-3"
+        >
+          <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <Award className="w-4 h-4" />
+            Mint NFT Certificate
+          </p>
+          <input
+            type="text"
+            value={nftMintAddress}
+            onChange={(e) => setNftMintAddress(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono"
+            placeholder="Student STX address"
+          />
+          <button
+            type="submit"
+            disabled={!isInstructor || !connected || loadingNft}
+            className="w-full rounded-lg bg-gradient-to-r from-orange-500 to-yellow-400 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {loadingNft ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Minting...
+              </>
+            ) : (
+              <>
+                <Award className="w-4 h-4" />
+                Mint Certificate NFT
+              </>
+            )}
+          </button>
+          <p className="text-xs text-gray-500">
+            Grant a completion certificate NFT to a student (one per student)
+          </p>
+        </form>
+
+        <form
+          onSubmit={handleSetMeetingLink}
+          className="border border-gray-200 rounded-xl p-4 space-y-3"
+        >
           <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <BookPlus className="w-4 h-4" />
             Set Meeting Link
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <p>Do not include https:// or it will fail.</p>
+          <div className="grid grid-cols-1 gap-3">
             <div>
               <label className="text-xs text-gray-500">Course ID</label>
               <input
@@ -684,21 +682,212 @@ export default function AdminPanel({
           </div>
           <button
             type="submit"
-            disabled={!isOwner || !connected}
+            disabled={!isInstructor || !connected || loadingMeetingLink}
             className="w-full rounded-lg bg-purple-600 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            <BookPlus className="w-4 h-4" />
-            Set Meeting Link
+            {loadingMeetingLink ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <BookPlus className="w-4 h-4" />
+                Set Meeting Link
+              </>
+            )}
           </button>
         </form>
       </div>
+      </div>
 
-      {!isOwner && (
+
+      {/* Advanced Settings Accordion */}
+      <div className="border border-gray-200 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-gray-700" />
+            <h4 className="text-lg font-semibold text-gray-900">Advanced Settings</h4>
+          </div>
+          {showAdvanced ? (
+            <ChevronUp className="w-5 h-5 text-gray-600" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-600" />
+          )}
+        </button>
+
+        {showAdvanced && (
+          <div className="p-6 space-y-6 bg-white">
+            <div className="grid gap-6 md:grid-cols-2">
+        <div className="border border-gray-200 rounded-xl p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500">
+                Configured sBTC Contract
+              </p>
+              <p className="font-mono text-sm text-gray-900 break-all">
+                {configuredSbtc || "Not set"}
+              </p>
+            </div>
+            <button
+              onClick={refreshConfiguredSbtc}
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              disabled={loadingConfig}
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${loadingConfig ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
+          </div>
+          <form onSubmit={handleSetSbtc} className="space-y-3">
+            <label className="text-sm font-semibold text-gray-700">
+              Set sBTC Contract
+            </label>
+            <input
+              type="text"
+              value={sbtcInput}
+              onChange={(e) => setSbtcInput(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
+              placeholder="ST...contract"
+            />
+            <button
+              type="submit"
+              disabled={!isInstructor || !connected || loadingSbtc}
+              className="w-full rounded-lg bg-gray-900 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loadingSbtc ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update sBTC Contract"
+              )}
+            </button>
+          </form>
+        </div>
+
+        <div className="border border-gray-200 rounded-xl p-4 space-y-4">
+          <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4" />
+            Instructor Management
+          </p>
+          <form onSubmit={handleAddInstructor} className="space-y-3">
+            <input
+              type="text"
+              value={instructorAddress}
+              onChange={(e) => setInstructorAddress(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
+              placeholder="Instructor STX address"
+            />
+            <button
+              type="submit"
+              disabled={!isInstructor || !connected || loadingInstructor}
+              className="w-full rounded-lg bg-indigo-600 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loadingInstructor ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4" />
+                  Add Instructor
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+      </div>
+
+            <div className="border border-gray-200 rounded-xl p-4 space-y-4">
+              <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <UserPlus className="w-4 h-4" />
+                Whitelist Controls
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleWhitelist("add", whitelistAddress, () =>
+                    setWhitelistAddress("")
+                  );
+                }}
+                className="space-y-3"
+              >
+                <input
+                  type="text"
+                  value={whitelistAddress}
+                  onChange={(e) => setWhitelistAddress(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
+                  placeholder="Student STX address"
+                />
+                <button
+                  type="submit"
+                  disabled={!isInstructor || !connected || loadingWhitelist}
+                  className="w-full rounded-lg bg-green-600 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {loadingWhitelist ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      Add to Whitelist
+                    </>
+                  )}
+                </button>
+              </form>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleWhitelist("remove", removeAddress, () =>
+                    setRemoveAddress("")
+                  );
+                }}
+                className="space-y-3"
+              >
+                <input
+                  type="text"
+                  value={removeAddress}
+                  onChange={(e) => setRemoveAddress(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
+                  placeholder="Student STX address"
+                />
+                <button
+                  type="submit"
+                  disabled={!isInstructor || !connected || loadingRemove}
+                  className="w-full rounded-lg bg-red-600 text-white py-2 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {loadingRemove ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <UserMinus className="w-4 h-4" />
+                      Remove from Whitelist
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {!isInstructor && (
         <div className="text-sm text-gray-600 bg-gray-50 border border-dashed border-gray-300 rounded-xl p-4">
-          Connect with the contract owner's Turnkey wallet (
-          {CONTRACT_OWNER_ADDRESS}) to enable admin controls. The interface
-          stays visible so you can preview available actions even when
-          read-only.
+          Connect with an authorized instructor wallet to enable admin controls. 
+          Contact the contract owner ({CONTRACT_OWNER_ADDRESS}) to request instructor access. 
+          The interface stays visible so you can preview available actions even when read-only.
         </div>
       )}
     </section>

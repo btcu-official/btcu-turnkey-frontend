@@ -309,9 +309,21 @@ export default function CoursePage() {
           network: STACKS_NETWORK,
           senderAddress: address,
         });
+        
+        // Parse the response: (ok (some { link: "..." })) or (ok none)
         const linkData = cvToValue(result);
-        if (linkData?.value?.value?.link) {
-          setMeetingLink(linkData.value.value.link);
+        console.log("Meeting link data:", linkData);
+        
+        // Handle the nested optional structure
+        // linkData.value is the inner value (some {...} or none)
+        if (linkData?.value?.value) {
+          const link = linkData.value.value.link;
+          if (link && typeof link === 'string') {
+            setMeetingLink(link);
+            console.log("Meeting link set:", link);
+          }
+        } else {
+          console.log("No meeting link found for course", courseId);
         }
       } catch (err) {
         console.error("Failed to fetch meeting link:", err);
@@ -486,6 +498,48 @@ export default function CoursePage() {
                 </div>
               )}
             </motion.div>
+
+            {/* Live Meeting Section */}
+            {isEnrolled && meetingLink && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl p-8 border border-purple-300 text-white"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="bg-white/20 p-3 rounded-xl">
+                    <Video className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold mb-2">
+                      Live Interactive Session
+                    </h2>
+                    <p className="text-white/90 mb-4">
+                      Join our instructor-led session to ask questions and collaborate with fellow students
+                    </p>
+                    <div className="flex flex-wrap gap-4 mb-4">
+                      <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg">
+                        <Clock className="w-4 h-4" />
+                        <span className="font-semibold">Every Saturday, 2:00 PM EST</span>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg">
+                        <Users className="w-4 h-4" />
+                        <span className="font-semibold">Live Q&A</span>
+                      </div>
+                    </div>
+                    <a
+                      href={meetingLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-white text-purple-600 px-6 py-3 rounded-xl font-semibold hover:bg-gray-100 transition-colors"
+                    >
+                      <Video className="w-5 h-5" />
+                      Join Meeting Room
+                    </a>
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             {/* Course Content */}
             <div className="bg-white rounded-2xl p-8 border border-gray-200">

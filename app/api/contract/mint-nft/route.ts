@@ -20,8 +20,8 @@ export async function POST(req: NextRequest) {
     // Server wallet signs for all users (hackathon workaround)
     const transaction = await signContractCallWithTurnkey({
       contractAddress: CONTRACTS.BTCUNI_NFT,
-      contractName: "btcuniNft",
-      functionName: "mint",
+      contractName: "btc-university-nft",
+      functionName: "mint-for-student",
       functionArgs: [principalCV(recipientAddress)],
     });
 

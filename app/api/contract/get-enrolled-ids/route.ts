@@ -21,8 +21,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const contractAddress = process.env.NEXT_PUBLIC_BTCUNI_CONTRACT_ADDRESS!;
-    const contractName = process.env.NEXT_PUBLIC_BTCUNI_CONTRACT_NAME!;
+    const contractAddress = process.env.NEXT_PUBLIC_BTCUNI_CONTRACT_ADDRESS || "STE8EXW8APGP8Y9WT9K102KCGEKZY4KH0VKSXD9Y";
+    const contractName = process.env.NEXT_PUBLIC_BTCUNI_CONTRACT_NAME || "btc-university";
     const network = process.env.NEXT_PUBLIC_STACKS_NETWORK || "testnet";
     const apiUrl =
       network === "mainnet"

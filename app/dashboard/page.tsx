@@ -26,6 +26,7 @@ import CreateWallet from "../components/createWallet";
 import WalletDisplay from "../components/displayWallet";
 import ExportWallet from "../components/exportwallet";
 import WithdrawSTX from "../components/withdrawwallet";
+import StudentNFTDisplay from "../components/student-nft-display";
 
 const COURSES = [
   {
@@ -398,6 +399,11 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </motion.div>
+            )}
+
+            {/* NFT Certificate Display - Only shows if student has NFT */}
+            {isWhitelisted && stxAddress && (
+              <StudentNFTDisplay studentAddress={stxAddress} />
             )}
 
             {/* Learning Progress */}

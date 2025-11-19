@@ -49,11 +49,31 @@ npm install
 
 ### Environment Variables
 
-Copy the text from `.env.local.example`
+The frontend will work with default contract addresses (see below), but you can override them if needed.
 
-Create `.env.local`:
+Create `.env.local` (optional):
 
-Get credentials from [Turnkey Dashboard](https://app.turnkey.com).
+```bash
+# BTC University Main Contract
+NEXT_PUBLIC_BTCUNI_CONTRACT_ADDRESS=STE8EXW8APGP8Y9WT9K102KCGEKZY4KH0VKSXD9Y
+NEXT_PUBLIC_BTCUNI_CONTRACT_NAME=btc-university
+
+# BTC University NFT Contract
+NEXT_PUBLIC_BTCUNI_NFT_CONTRACT_ADDRESS=STE8EXW8APGP8Y9WT9K102KCGEKZY4KH0VKSXD9Y
+NEXT_PUBLIC_BTCUNI_NFT_CONTRACT_NAME=btc-university-nft
+
+# sBTC Token Contract
+NEXT_PUBLIC_SBTC_CONTRACT_ADDRESS=ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT
+NEXT_PUBLIC_SBTC_CONTRACT_NAME=sbtc-token
+
+# Turnkey Credentials (required for wallet creation and transactions)
+TURNKEY_API_PUBLIC_KEY=your-public-key
+TURNKEY_API_PRIVATE_KEY=your-private-key
+TURNKEY_ORGANIZATION_ID=your-org-id
+TURNKEY_WALLET_ID=your-wallet-id
+```
+
+Get Turnkey credentials from [Turnkey Dashboard](https://app.turnkey.com).
 
 ### Development
 
@@ -120,7 +140,7 @@ app/
 - **API**: Hiro Public API (`https://api.testnet.hiro.so`)
 - **Explorer**: https://explorer.hiro.so/?chain=testnet
 - **Faucet**: https://explorer.hiro.so/sandbox/faucet?chain=testnet
-- **BTC University contract (testnet)**: `STHJGT945DGCQH08X9KB04V2DBHERWTQZCN5BVJS.btc-university`
+- **BTC University contract (testnet)**: `STE8EXW8APGP8Y9WT9K102KCGEKZY4KH0VKSXD9Y.btc-university`
 - **sBTC token contract (testnet)**: `ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token`
 - Configure via `NEXT_PUBLIC_BTCUNI_CONTRACT_ADDRESS/NEXT_PUBLIC_BTCUNI_CONTRACT_NAME` and `NEXT_PUBLIC_SBTC_CONTRACT_ADDRESS/NEXT_PUBLIC_SBTC_CONTRACT_NAME`. Optionally set `NEXT_PUBLIC_BTCUNI_OWNER_ADDRESS` to gate the admin console to the deployer wallet.
 
